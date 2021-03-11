@@ -11,6 +11,7 @@
 #include "process.h"
 
 //comment
+int testpush;
 
 // Shared data for all cores
 typedef struct SchedulerData {
