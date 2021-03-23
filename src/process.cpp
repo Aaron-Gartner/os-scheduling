@@ -121,9 +121,16 @@ void Process::interruptHandled()
 }
 
 void Process::updateProcess(uint64_t current_time)
-{
+{   
     // use `current_time` to update turnaround time, wait time, burst times, 
     // cpu time, and remaining time
+    uint64_t update_time_elapsed = getStartTime() - current_time;
+    cpu_time = getCpuTime()
+    remain_time = getRemainingTime() - update_time_elapsed;
+    wait_time = getWaitTime(); 
+    turn_time = getTurnaroundTime() + update_time_elapsed;
+    updateBurstTime(burst_times[burst_idx], update_time);
+    
 }
 
 void Process::updateBurstTime(int burst_idx, uint32_t new_time)
@@ -139,6 +146,9 @@ void Process::updateBurstTime(int burst_idx, uint32_t new_time)
 bool SjfComparator::operator ()(const Process *p1, const Process *p2)
 {
     // your code here!
+    if (p1->getRemainingTime() > p2->getRemainingTime()){
+        return true;
+    }
     return false; // change this!
 }
 
@@ -146,5 +156,8 @@ bool SjfComparator::operator ()(const Process *p1, const Process *p2)
 bool PpComparator::operator ()(const Process *p1, const Process *p2)
 {
     // your code here!
+    if (p1->getPriority() > p2->getPriority()){
+        return true;
+    }
     return false; // change this!
 }

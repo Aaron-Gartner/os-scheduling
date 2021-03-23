@@ -78,16 +78,41 @@ int main(int argc, char **argv)
         schedule_threads[i] = std::thread(coreRunProcesses, i, shared_data);
     }
 
+    
+
     // Main thread work goes here
     int num_lines = 0;
     while (!(shared_data->all_terminated))
-    {
+    {   
+        std::list<Process*>::iterator it;
         // Clear output from previous iteration
         clearOutput(num_lines);
+        if (shared_data->algorithm == "FCSF") {
+            //need to sort the ready queue, if not round robin set the time slice high >8000
+            for (it = shared_data->ready_queue.begin(); it != shared_data->ready_queue.end(); it++){
+                (*it)->;
+            }
+        } else if (shared_data->algorithm == "RR") {
 
+        } else if (shared_data->algorithm == "SJF") {
+            for (it = my_list.begin(); it != my_list.end(); it++){
+                it->ready_queue;
+            }
+
+        } else if (shared_data->algorithm == "PP") {
+            for (it = my_list.begin(); it != my_list.end(); it++){
+                it->ready_queue;
+            }
+
+        }  else {
+            std::cout << "ERROR: Please enter a valid scheduler selection" << std::endl; 
+        }
         // Do the following:
         //   - Get current time
+        uint64_t current = currentTime();
+
         //   - *Check if any processes need to move from NotStarted to Ready (based on elapsed time), and if so put that process in the ready queue
+
         //   - *Check if any processes have finished their I/O burst, and if so put that process back in the ready queue
         //   - *Check if any running process need to be interrupted (RR time slice expires or newly ready process has higher priority)
         //   - *Sort the ready queue (if needed - based on scheduling algorithm)
@@ -125,8 +150,7 @@ int main(int argc, char **argv)
 }
 
 void coreRunProcesses(uint8_t core_id, SchedulerData *shared_data)
-{
-    // Work to be done by each core idependent of the other cores
+{   // Work to be done by each core idependent of the other cores
     // Repeat until all processes in terminated state:
     //   - *Get process at front of ready queue
     //   - Simulate the processes running until one of the following:
@@ -138,6 +162,21 @@ void coreRunProcesses(uint8_t core_id, SchedulerData *shared_data)
     //     - *Ready queue if interrupted (be sure to modify the CPU burst time to now reflect the remaining time)
     //  - Wait context switching time
     //  - * = accesses shared data (ready queue), so be sure to use proper synchronization
+    
+    //take the thing at the front of the ready queue
+    if (shared_data->algorithm == "RR") {
+        while(shared_data->all_terminated == false) {
+
+        }
+
+    } else if (shared_data->algorithm == "PP"){
+        while(shared_data->all_terminated == false) {
+
+        }
+    } else {
+        //Do whatever 
+    }
+    
 }
 
 int printProcessOutput(std::vector<Process*>& processes, std::mutex& mutex)
