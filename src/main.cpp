@@ -10,8 +10,6 @@
 #include "configreader.h"
 #include "process.h"
 
-//comment
-int testpush;
 
 // Shared data for all cores
 typedef struct SchedulerData {
@@ -83,41 +81,54 @@ int main(int argc, char **argv)
     // Main thread work goes here
     int num_lines = 0;
     while (!(shared_data->all_terminated))
-    {   
-        std::list<Process*>::iterator it;
-        // Clear output from previous iteration
-        clearOutput(num_lines);
-        if (shared_data->algorithm == "FCSF") {
-            //need to sort the ready queue, if not round robin set the time slice high >8000
-            for (it = shared_data->ready_queue.begin(); it != shared_data->ready_queue.end(); it++){
-                (*it)->;
-            }
-        } else if (shared_data->algorithm == "RR") {
-
-        } else if (shared_data->algorithm == "SJF") {
-            for (it = my_list.begin(); it != my_list.end(); it++){
-                it->ready_queue;
-            }
-
-        } else if (shared_data->algorithm == "PP") {
-            for (it = my_list.begin(); it != my_list.end(); it++){
-                it->ready_queue;
-            }
-
-        }  else {
-            std::cout << "ERROR: Please enter a valid scheduler selection" << std::endl; 
-        }
-        // Do the following:
+    {   // Do the following:
         //   - Get current time
         uint64_t current = currentTime();
 
         //   - *Check if any processes need to move from NotStarted to Ready (based on elapsed time), and if so put that process in the ready queue
-
         //   - *Check if any processes have finished their I/O burst, and if so put that process back in the ready queue
         //   - *Check if any running process need to be interrupted (RR time slice expires or newly ready process has higher priority)
         //   - *Sort the ready queue (if needed - based on scheduling algorithm)
         //   - Determine if all processes are in the terminated state
         //   - * = accesses shared data (ready queue), so be sure to use proper synchronization
+        std::list<Process*>::iterator it;
+        // Clear output from previous iteration
+        clearOutput(num_lines);
+        if (shared_data->algorithm == "FCSF") {
+            //need to sort the ready queue, if not round robin set the time slice high >8000
+            for(int i = 0; i < shared_data->ready_queue.size(); i++) {
+                Process *currentProcess = shared_data->ready_queue.pop_front();
+                coreRunProcesses(currentProcess->getCpuCore(), shared_data);
+            }
+        } else if (shared_data->algorithm == "RR") {
+
+        } else if (shared_data->algorithm == "SJF") {
+            //Sort based on remaining time
+            shared_data->ready_queue.sort(SjfComparator::operator ());
+            /*for (it = shared_data->ready_queue.begin(); it != shared_data->ready_queue.end(); it++){
+                (*it)->;
+            }*/
+            //Run the processes
+            for(int i = 0; i < shared_data->ready_queue.size(); i++) {
+                Process *currentProcess = shared_data->ready_queue.pop_front();
+                coreRunProcesses(currentProcess->getCpuCore(), shared_data);
+            }
+
+        } else if (shared_data->algorithm == "PP") {
+            //Sort based on priority
+            shared_data->ready_queue.sort(PpComparator::operator ());
+            /*for (it = shared_data->ready_queue.begin(); it != shared_data->ready_queue.end(); it++){
+                (*it)->;
+            }*/
+            //Run the processes
+            for(int i = 0; i < shared_data->ready_queue.size(); i++) {
+                Process *currentProcess = shared_data->ready_queue.pop_front();
+                coreRunProcesses(currentProcess->getCpuCore(), shared_data);
+            }
+
+        }  else {
+            std::cout << "ERROR: Please enter a valid scheduler selection" << std::endl; 
+        } 
 
         // output process status table
         num_lines = printProcessOutput(processes, shared_data->mutex);
@@ -174,7 +185,12 @@ void coreRunProcesses(uint8_t core_id, SchedulerData *shared_data)
 
         }
     } else {
-        //Do whatever 
+        //FCFS code
+        currentProcess->setState(Process::State::Running,currentTime());
+        usleep(currentProcess->getRemainingTime());
+        currentProcess->setState(Process::State::Terminated,currentTime());
+        usleep(shared_data->context_switch);
+
     }
     
 }
