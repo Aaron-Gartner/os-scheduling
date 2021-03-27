@@ -96,7 +96,6 @@ int main(int argc, char **argv)
             //runs processes
             Process *currentProcess = shared_data->ready_queue.pop_front();
             coreRunProcesses(currentProcess->getCpuCore(), shared_data);
-            currentProcess->setState(Process::State::Terminated, currentTime())
             //updates all processes
             for (it = shared_data->ready_queue.begin(); it != shared_data->ready_queue.end(); it++){
                 (*it)->updateProcess(current);
