@@ -84,26 +84,23 @@ int main(int argc, char **argv)
     {   // Do the following:
         //   - Get current time
         uint64_t current = currentTime();
-
         //   - *Check if any processes need to move from NotStarted to Ready (based on elapsed time), and if so put that process in the ready queue
         //   - *Check if any processes have finished their I/O burst, and if so put that process back in the ready queue
         //   - *Check if any running process need to be interrupted (RR time slice expires or newly ready process has higher priority)
         //   - *Sort the ready queue (if needed - based on scheduling algorithm)
         //   - Determine if all processes are in the terminated state
         //   - * = accesses shared data (ready queue), so be sure to use proper synchronization
+        //Iterator to access our processes
         std::list<Process*>::iterator it;
         // Clear output from previous iteration
         clearOutput(num_lines);
         if (shared_data->algorithm == "FCSF") {
             //need to sort the ready queue, if not round robin set the time slice high >8000
             for (it = shared_data->ready_queue.begin(); it != shared_data->ready_queue.end(); it++){
-                if ((*it)->getState() == Process::State::NotStarted) {
-                    (*it)->setState(Process::State::Ready, currentTime());
-                }
+                
             }
-            for(int i = 0; i < shared_data->ready_queue.size(); i++) {
-                Process *currentProcess = shared_data->ready_queue.pop_front();
-                coreRunProcesses(currentProcess->getCpuCore(), shared_data);
+            for (it = shared_data->ready_queue.begin(); it != shared_data->ready_queue.end(); it++){
+                coreRunProcesses((*it), shared_data);
             }
         } else if (shared_data->algorithm == "RR") {
 
