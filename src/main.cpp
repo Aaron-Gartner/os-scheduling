@@ -76,8 +76,6 @@ int main(int argc, char **argv)
         schedule_threads[i] = std::thread(coreRunProcesses, i, shared_data);
     }
 
-    
-
     // Main thread work goes here
     int num_lines = 0;
     while (!(shared_data->all_terminated))
@@ -95,28 +93,28 @@ int main(int argc, char **argv)
         // Clear output from previous iteration
         clearOutput(num_lines);
         if (shared_data->algorithm == "FCSF") {
-            //need to sort the ready queue, if not round robin set the time slice high >8000
+            //runs processes
+            Process *currentProcess = shared_data->ready_queue.pop_front();
+            coreRunProcesses(currentProcess->getCpuCore(), shared_data);
+            currentProcess->setState(Process::State::Terminated, currentTime())
+            //updates all processes
             for (it = shared_data->ready_queue.begin(); it != shared_data->ready_queue.end(); it++){
-                
+                (*it)->updateProcess(current);
             }
-            for (it = shared_data->ready_queue.begin(); it != shared_data->ready_queue.end(); it++){
-                coreRunProcesses((*it), shared_data);
-            }
+            
         } else if (shared_data->algorithm == "RR") {
 
         } else if (shared_data->algorithm == "SJF") {
             //Sort based on remaining time
             shared_data->ready_queue.sort(SjfComparator::operator ());
-            //Sets all to ready
-            for (it = shared_data->ready_queue.begin(); it != shared_data->ready_queue.end(); it++){
-                if ((*it)->getState() == Process::State::NotStarted) {
-                    (*it)->setState(Process::State::Ready, currentTime());
-                }
-            }
             //Run the processes
             for(int i = 0; i < shared_data->ready_queue.size(); i++) {
                 Process *currentProcess = shared_data->ready_queue.pop_front();
                 coreRunProcesses(currentProcess->getCpuCore(), shared_data);
+            }
+            //updates process after running
+            for (it = shared_data->ready_queue.begin(); it != shared_data->ready_queue.end(); it++){
+                (*it)->updateProcess(current);
             }
 
         } else if (shared_data->algorithm == "PP") {
@@ -124,9 +122,7 @@ int main(int argc, char **argv)
             shared_data->ready_queue.sort(PpComparator::operator ());
             //Sets all to ready state
             for (it = shared_data->ready_queue.begin(); it != shared_data->ready_queue.end(); it++){
-                if ((*it)->getState() == Process::State::NotStarted) {
-                    (*it)->setState(Process::State::Ready, currentTime());
-                }
+                
             }
             //Run the processes
             for(int i = 0; i < shared_data->ready_queue.size(); i++) {
@@ -184,20 +180,20 @@ void coreRunProcesses(uint8_t core_id, SchedulerData *shared_data)
     
     //take the thing at the front of the ready queue
     if (shared_data->algorithm == "RR") {
-        while(shared_data->all_terminated == false) {
-
-        }
 
     } else if (shared_data->algorithm == "PP"){
-        while(shared_data->all_terminated == false) {
-
-        }
+    
     } else {
-        //FCFS code
         Process *currentProcess = shared_data->ready_queue.pop_front();
         currentProcess->setState(Process::State::Running,currentTime());
-        usleep(currentProcess->getRemainingTime());
-        currentProcess->setState(Process::State::Terminated,currentTime());
+        //check if remaining time is less than time slice.
+        if (currentProcess->getRemainingTime() < shared_data->time_slice) {
+            usleep(currentProcess->getRemainingTime());
+            currentProcess->setState(Process::State::Terminated,currentTime());
+        } else {
+            usleep(shared_data->time_slice);
+        } 
+        
         usleep(shared_data->context_switch);
 
     }
