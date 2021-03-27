@@ -96,6 +96,11 @@ int main(int argc, char **argv)
         clearOutput(num_lines);
         if (shared_data->algorithm == "FCSF") {
             //need to sort the ready queue, if not round robin set the time slice high >8000
+            for (it = shared_data->ready_queue.begin(); it != shared_data->ready_queue.end(); it++){
+                if ((*it)->getState() == Process::State::NotStarted) {
+                    (*it)->setState(Process::State::Ready, currentTime());
+                }
+            }
             for(int i = 0; i < shared_data->ready_queue.size(); i++) {
                 Process *currentProcess = shared_data->ready_queue.pop_front();
                 coreRunProcesses(currentProcess->getCpuCore(), shared_data);
@@ -105,9 +110,12 @@ int main(int argc, char **argv)
         } else if (shared_data->algorithm == "SJF") {
             //Sort based on remaining time
             shared_data->ready_queue.sort(SjfComparator::operator ());
-            /*for (it = shared_data->ready_queue.begin(); it != shared_data->ready_queue.end(); it++){
-                (*it)->;
-            }*/
+            //Sets all to ready
+            for (it = shared_data->ready_queue.begin(); it != shared_data->ready_queue.end(); it++){
+                if ((*it)->getState() == Process::State::NotStarted) {
+                    (*it)->setState(Process::State::Ready, currentTime());
+                }
+            }
             //Run the processes
             for(int i = 0; i < shared_data->ready_queue.size(); i++) {
                 Process *currentProcess = shared_data->ready_queue.pop_front();
@@ -117,9 +125,12 @@ int main(int argc, char **argv)
         } else if (shared_data->algorithm == "PP") {
             //Sort based on priority
             shared_data->ready_queue.sort(PpComparator::operator ());
-            /*for (it = shared_data->ready_queue.begin(); it != shared_data->ready_queue.end(); it++){
-                (*it)->;
-            }*/
+            //Sets all to ready state
+            for (it = shared_data->ready_queue.begin(); it != shared_data->ready_queue.end(); it++){
+                if ((*it)->getState() == Process::State::NotStarted) {
+                    (*it)->setState(Process::State::Ready, currentTime());
+                }
+            }
             //Run the processes
             for(int i = 0; i < shared_data->ready_queue.size(); i++) {
                 Process *currentProcess = shared_data->ready_queue.pop_front();
@@ -186,6 +197,7 @@ void coreRunProcesses(uint8_t core_id, SchedulerData *shared_data)
         }
     } else {
         //FCFS code
+        Process *currentProcess = shared_data->ready_queue.pop_front();
         currentProcess->setState(Process::State::Running,currentTime());
         usleep(currentProcess->getRemainingTime());
         currentProcess->setState(Process::State::Terminated,currentTime());
