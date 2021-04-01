@@ -82,50 +82,64 @@ int main(int argc, char **argv)
     {   // Do the following:
         // - Get current time
         uint64_t current = currentTime();
+         //Iterator to access our processes
+        std::list<Process*>::iterator it;
         // - *Check if any processes need to move from NotStarted to Ready (based on elapsed time), and if so put that process in the ready queue
-        for (i = 0; i < shared_data->ready_queue.size(); i++) {
+        for (it = shared_data->ready_queue.begin(); it != shared_data->ready_queue.end(); it++) {
             std::lock_guard<std::mutex> lock(shared_data->mutex);
-            //Take whats at the front
-            Process *p = shared_data->ready_queue.pop_front();
             //Moves from not started to Ready
-            if (p->getState() == Process::State::NotStarted) {
-                p->setState(Process::State::Ready,current);
+            if ((*it)->getState() == Process::State::NotStarted) {
+                (*it)->setState(Process::State::Ready,current);
             }
-            //Pushes it to the back of the queue
-            shared_data->ready_queue.push_back(p);
         }
         // - *Check if any processes have finished their I/O burst, and if so put that process back in the ready queue
-        for (i = 0; i < shared_data->ready_queue.size(); i++) {
+        for (it = shared_data->ready_queue.begin(); it != shared_data->ready_queue.end(); it++) {
             std::lock_guard<std::mutex> lock(shared_data->mutex);
-            //Take whats at the front
-            Process *p = shared_data->ready_queue.pop_front();
             //Moves from I/O to back into the queue
-            if (p->getState() == Process::State::IO) {
-                shared_data->ready_queue.push_back(p);
+            if ((*it)->getState()  == Process::State::IO) {
+                (*it)->setState(Process::State::Ready,current);
             }
         }
         // - *Check if any running process need to be interrupted (RR time slice expires or newly ready process has higher priority)
+        for (it = shared_data->ready_queue.begin(); it != shared_data->ready_queue.end(); it++) {
+            std::lock_guard<std::mutex> lock(shared_data->mutex);
+            //Takes the process at the front of the ready queue
+            //(*it)->getState()   
+        }
         // - *Sort the ready queue (if needed - based on scheduling algorithm)
+        //Sort based on remaining time
         if (shared_data->algorithm == SJF) {
-            //Sort based on remaining time
             shared_data->ready_queue.sort(SjfComparator::operator ());
         } 
+        //Sort based on priority
         if (shared_data->algorithm == PP) {
-            //Sort based on priority
             shared_data->ready_queue.sort(PpComparator::operator ());
 
         }
         //   - Determine if all processes are in the terminated state
-        //   - * = accesses shared data (ready queue), so be sure to use proper synchronization
-        //Iterator to access our processes
-        std::list<Process*>::iterator it;
-        // Clear output from previous iteration
-        clearOutput(num_lines);
-        
+        bool allComplete = false;
+        int counter = 0;
+        for (it = shared_data->ready_queue.begin(); it != shared_data->ready_queue.end(); it++) {
+            std::lock_guard<std::mutex> lock(shared_data->mutex);
+            //Takes the process at the front of the ready queue
+            if ((*it)->getState() == Process::State::Terminated) {
+                allComplete = true;
+                counter++;
+            } else {
+                allComplete = false;
+            }   
+        }
+        //check if all complete is true and it occured for everything in our ready queue
+        if (allComplete == true && counter == shared_data->ready_queue.size()) {
+            shared_data->all_terminated = allComplete;
+        }
         //updates Processes
         for (it = shared_data->ready_queue.begin(); it != shared_data->ready_queue.end(); it++){
+            std::lock_guard<std::mutex> lock(shared_data->mutex);
             (*it)->updateProcess(current);
         }
+        // Clear output from previous iteration
+        clearOutput(num_lines);
 
         // output process status table
         num_lines = printProcessOutput(processes, shared_data->mutex);
