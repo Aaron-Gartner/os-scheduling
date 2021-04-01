@@ -127,7 +127,7 @@ void Process::updateProcess(uint64_t current_time)
     // current time update
     uint64_t update_time_elapsed = getStartTime() - current_time;
     // updates time run on cpu
-    cpu_time = getCpuTime();
+    cpu_time = current_time - getBurstStartTime();
     //updates the remaining time base on time run on cpu
     remain_time = getRemainingTime() - cpu_time;
     //updates wait time

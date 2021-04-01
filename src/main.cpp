@@ -80,58 +80,52 @@ int main(int argc, char **argv)
     int num_lines = 0;
     while (!(shared_data->all_terminated))
     {   // Do the following:
-        //   - Get current time
+        // - Get current time
         uint64_t current = currentTime();
-        //   - *Check if any processes need to move from NotStarted to Ready (based on elapsed time), and if so put that process in the ready queue
-        //   - *Check if any processes have finished their I/O burst, and if so put that process back in the ready queue
-        //   - *Check if any running process need to be interrupted (RR time slice expires or newly ready process has higher priority)
-        //   - *Sort the ready queue (if needed - based on scheduling algorithm)
+        // - *Check if any processes need to move from NotStarted to Ready (based on elapsed time), and if so put that process in the ready queue
+        for (i = 0; i < shared_data->ready_queue.size(); i++) {
+            std::lock_guard<std::mutex> lock(shared_data->mutex);
+            //Take whats at the front
+            Process *p = shared_data->ready_queue.pop_front();
+            //Moves from not started to Ready
+            if (p->getState() == Process::State::NotStarted) {
+                p->setState(Process::State::Ready,current);
+            }
+            //Pushes it to the back of the queue
+            shared_data->ready_queue.push_back(p);
+        }
+        // - *Check if any processes have finished their I/O burst, and if so put that process back in the ready queue
+        for (i = 0; i < shared_data->ready_queue.size(); i++) {
+            std::lock_guard<std::mutex> lock(shared_data->mutex);
+            //Take whats at the front
+            Process *p = shared_data->ready_queue.pop_front();
+            //Moves from I/O to back into the queue
+            if (p->getState() == Process::State::IO) {
+                shared_data->ready_queue.push_back(p);
+            }
+        }
+        // - *Check if any running process need to be interrupted (RR time slice expires or newly ready process has higher priority)
+        // - *Sort the ready queue (if needed - based on scheduling algorithm)
+        if (shared_data->algorithm == SJF) {
+            //Sort based on remaining time
+            shared_data->ready_queue.sort(SjfComparator::operator ());
+        } 
+        if (shared_data->algorithm == PP) {
+            //Sort based on priority
+            shared_data->ready_queue.sort(PpComparator::operator ());
+
+        }
         //   - Determine if all processes are in the terminated state
         //   - * = accesses shared data (ready queue), so be sure to use proper synchronization
         //Iterator to access our processes
         std::list<Process*>::iterator it;
         // Clear output from previous iteration
         clearOutput(num_lines);
-        if (shared_data->algorithm == "FCSF") {
-            //runs processes
-            Process *currentProcess = shared_data->ready_queue.pop_front();
-            coreRunProcesses(currentProcess->getCpuCore(), shared_data);
-            //updates all processes
-            for (it = shared_data->ready_queue.begin(); it != shared_data->ready_queue.end(); it++){
-                (*it)->updateProcess(current);
-            }
-            
-        } else if (shared_data->algorithm == "RR") {
-
-        } else if (shared_data->algorithm == "SJF") {
-            //Sort based on remaining time
-            shared_data->ready_queue.sort(SjfComparator::operator ());
-            //Run the processes
-            for(int i = 0; i < shared_data->ready_queue.size(); i++) {
-                Process *currentProcess = shared_data->ready_queue.pop_front();
-                coreRunProcesses(currentProcess->getCpuCore(), shared_data);
-            }
-            //updates process after running
-            for (it = shared_data->ready_queue.begin(); it != shared_data->ready_queue.end(); it++){
-                (*it)->updateProcess(current);
-            }
-
-        } else if (shared_data->algorithm == "PP") {
-            //Sort based on priority
-            shared_data->ready_queue.sort(PpComparator::operator ());
-            //Sets all to ready state
-            for (it = shared_data->ready_queue.begin(); it != shared_data->ready_queue.end(); it++){
-                
-            }
-            //Run the processes
-            for(int i = 0; i < shared_data->ready_queue.size(); i++) {
-                Process *currentProcess = shared_data->ready_queue.pop_front();
-                coreRunProcesses(currentProcess->getCpuCore(), shared_data);
-            }
-
-        }  else {
-            std::cout << "ERROR: Please enter a valid scheduler selection" << std::endl; 
-        } 
+        
+        //updates Processes
+        for (it = shared_data->ready_queue.begin(); it != shared_data->ready_queue.end(); it++){
+            (*it)->updateProcess(current);
+        }
 
         // output process status table
         num_lines = printProcessOutput(processes, shared_data->mutex);
@@ -178,23 +172,28 @@ void coreRunProcesses(uint8_t core_id, SchedulerData *shared_data)
     //  - * = accesses shared data (ready queue), so be sure to use proper synchronization
     
     //take the thing at the front of the ready queue
-    if (shared_data->algorithm == "RR") {
-
-    } else if (shared_data->algorithm == "PP"){
-    
-    } else {
+    while (!(shared_data->all_terminated)) {
+        //Locks Crit section
+        std::lock_guard<std::mutex> lock(shared_data->mutex);
+        //Pulls from front of queue
         Process *currentProcess = shared_data->ready_queue.pop_front();
         currentProcess->setState(Process::State::Running,currentTime());
-        //check if remaining time is less than time slice.
-        if (currentProcess->getRemainingTime() < shared_data->time_slice) {
-            usleep(currentProcess->getRemainingTime());
-            currentProcess->setState(Process::State::Terminated,currentTime());
-        } else {
-            usleep(shared_data->time_slice);
-        } 
-        
-        usleep(shared_data->context_switch);
+        if (shared_data->algorithm == RR) {
 
+        } else if (shared_data->algorithm == PP) {
+        
+        } else {
+            //check if remaining time is less than time slice.
+            if (currentProcess->getRemainingTime() < shared_data->time_slice) {
+                usleep(currentProcess->getRemainingTime());
+                currentProcess->setState(Process::State::Terminated,currentTime());
+            } else {
+                usleep(shared_data->time_slice);
+            } 
+            
+            usleep(shared_data->context_switch);
+
+        }
     }
     
 }
