@@ -187,27 +187,36 @@ void coreRunProcesses(uint8_t core_id, SchedulerData *shared_data)
     
     //take the thing at the front of the ready queue
     while (!(shared_data->all_terminated)) {
+        std::list<Process*>::iterator it;
         //Locks Crit section
         std::lock_guard<std::mutex> lock(shared_data->mutex);
-        //Pulls from front of queue
-        Process *currentProcess = shared_data->ready_queue.pop_front();
-        currentProcess->setState(Process::State::Running,currentTime());
-        if (shared_data->algorithm == RR) {
-
-        } else if (shared_data->algorithm == PP) {
-        
-        } else {
+        for (it = shared_data->ready_queue.begin(); it != shared_data->ready_queue.end(); it++){
+            std::lock_guard<std::mutex> lock(shared_data->mutex);
+            (*it)->setState(Process::State::Running,currentTime());
+            if (shared_data->algorithm == RR) {
+                //RR process runs until time slice expires
+                if ((*it)->getRemainingTime() > shared_data->time_slice) {
+                    usleep(shared_data->time_slice);
+                    (*it)->interrupt();
+                    (*it)->setState(Process::State::IO,currentTime());
+                    (*it)->updateProcess(currentTime());
+                }
+                
+            } 
+            if (shared_data->algorithm == PP) {
+            
+            } 
             //check if remaining time is less than time slice.
-            if (currentProcess->getRemainingTime() < shared_data->time_slice) {
-                usleep(currentProcess->getRemainingTime());
-                currentProcess->setState(Process::State::Terminated,currentTime());
+            if ((*it)->getRemainingTime() < shared_data->time_slice && (*it)->getState() == Process::State::Running) {
+                usleep((*it)->getRemainingTime());
+                (*it)->setState(Process::State::Terminated,currentTime());
             } else {
                 usleep(shared_data->time_slice);
             } 
-            
+                
             usleep(shared_data->context_switch);
 
-        }
+            }
     }
     
 }
