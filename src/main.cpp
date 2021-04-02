@@ -136,10 +136,11 @@ int main(int argc, char **argv)
             shared_data->all_terminated = allComplete;
         }
         //updates Processes
+        /*
         for (it = shared_data->ready_queue.begin(); it != shared_data->ready_queue.end(); it++){
             std::lock_guard<std::mutex> lock(shared_data->mutex);
             (*it)->updateProcess(current);
-        }
+        }*/
         // Clear output from previous iteration
         clearOutput(num_lines);
 
@@ -191,7 +192,7 @@ void coreRunProcesses(uint8_t core_id, SchedulerData *shared_data)
     while (!(shared_data->all_terminated)) {
         std::list<Process*>::iterator it;
         //Locks Crit section
-        std::lock_guard<std::mutex> lock(shared_data->mutex);
+        //std::lock_guard<std::mutex> lock(shared_data->mutex);
         for (it = shared_data->ready_queue.begin(); it != shared_data->ready_queue.end(); it++){
             std::lock_guard<std::mutex> lock(shared_data->mutex);
             (*it)->setState(Process::State::Running,currentTime());
@@ -217,7 +218,10 @@ void coreRunProcesses(uint8_t core_id, SchedulerData *shared_data)
             } 
                 
             usleep(shared_data->context_switch);
-
+            for (it = shared_data->ready_queue.begin(); it != shared_data->ready_queue.end(); it++){
+                std::lock_guard<std::mutex> lock(shared_data->mutex);
+                (*it)->updateProcess(currentTime());
+            }
             }
     }
     

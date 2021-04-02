@@ -125,11 +125,12 @@ void Process::updateProcess(uint64_t current_time)
     // use `current_time` to update turnaround time, wait time, burst times, 
     // cpu time, and remaining time
     // current time update
-    uint64_t update_time_elapsed = getStartTime() - current_time;
+    uint64_t update_time_elapsed2 = (double)current_time / 1000.0; 
+    uint64_t update_time_elapsed = (double)getStartTime() - update_time_elapsed2;
     // updates time run on cpu
     cpu_time = current_time - getBurstStartTime();
     //updates the remaining time base on time run on cpu
-    remain_time = getRemainingTime() - cpu_time;
+    remain_time = getRemainingTime() - getCpuTime();
     //updates wait time
     wait_time = (getWaitTime()+update_time_elapsed) - getCpuTime();
     //updates turn time 
