@@ -168,6 +168,11 @@ int main(int argc, char **argv)
     //     - Average for second 50% of processes finished
     printf("Average throughput for second 50% of processes finished: %f\n");
     //     - Overall average
+    double overallThroughput = 0.0;
+    for (it = shared_data->ready_queue.begin(); it != shared_data->ready_queue.end(); it++) {
+        overallThroughput = overallThroughput + (*it)->getCpuTime();
+    }
+    overallThroughput = overallThroughput / (double)config->num_processes;
     printf("Overall average throughput: %f\n");
     //  - Average turnaround time
     printf("Average turnaround time: %f\n");
@@ -229,7 +234,7 @@ void coreRunProcesses(uint8_t core_id, SchedulerData *shared_data)
                 //Place back in ready cue based on its priority (0 at front, 4 at back)
                 (*it)->setState(Process::State::Ready,currentTime());
                 shared_data->ready_queue.insert((*it)->getPriority(), *it); //Not sure exactly how to insert like this
-            } else 
+            }
             //check if remaining time is less than time slice.
             if ((*it)->getRemainingTime() < shared_data->time_slice && (*it)->getState() == Process::State::Running) {
                 usleep((*it)->getRemainingTime());
