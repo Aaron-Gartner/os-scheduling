@@ -91,6 +91,7 @@ int main(int argc, char **argv)
             //Moves from not started to Ready
             if ((*it)->getState() == Process::State::NotStarted) {
                 (*it)->setState(Process::State::Ready,current);
+                usleep(shared_data->context_switch);
             }
         }
         // - *Check if any processes have finished their I/O burst, and if so put that process back in the ready queue
@@ -99,6 +100,7 @@ int main(int argc, char **argv)
             //Moves from I/O to back into the queue
             if ((*it)->getState()  == Process::State::IO) {
                 (*it)->setState(Process::State::Ready,current);
+                usleep(shared_data->context_switch);
             }
         }
         // - *Check if any running process need to be interrupted (RR time slice expires or newly ready process has higher priority)
@@ -212,6 +214,7 @@ void coreRunProcesses(uint8_t core_id, SchedulerData *shared_data)
         //std::lock_guard<std::mutex> lock(shared_data->mutex);
         for (it = shared_data->ready_queue.begin(); it != shared_data->ready_queue.end(); it++){
             std::lock_guard<std::mutex> lock(shared_data->mutex);
+            (*it)->setCpuCore(0);
             (*it)->setState(Process::State::Running,currentTime());
             if (shared_data->algorithm == RR) {
                 //RR process runs until time slice expires then moves to IO
@@ -219,6 +222,7 @@ void coreRunProcesses(uint8_t core_id, SchedulerData *shared_data)
                     usleep(shared_data->time_slice);
                     (*it)->interrupt();
                     (*it)->setState(Process::State::IO,currentTime());
+                    usleep(shared_data->context_switch);
                     (*it)->updateProcess(currentTime());
                     shared_data->ready_queue.push_back(*it);
                 }               
@@ -227,22 +231,22 @@ void coreRunProcesses(uint8_t core_id, SchedulerData *shared_data)
             //then the lowest priority process that is running should be removed from the CPU and placed in the ready queue
             //(thus opening up that core to schedule the higher priority process) -----Isn't the ready queue already sorted with priority?
             //-------------How can you look at the priorities of processes running on other cores?
-            if (shared_data->algorithm == PP) {
+            /*if (shared_data->algorithm == PP) {
                 (*it)->setState(Process::State::IO,currentTime());
                 //Finish I/O burst
                 usleep(shared_data->);
                 //Place back in ready cue based on its priority (0 at front, 4 at back)
                 (*it)->setState(Process::State::Ready,currentTime());
                 shared_data->ready_queue.insert((*it)->getPriority(), *it); //Not sure exactly how to insert like this
-            }
+            }*/
             //check if remaining time is less than time slice.
             if ((*it)->getRemainingTime() < shared_data->time_slice && (*it)->getState() == Process::State::Running) {
                 usleep((*it)->getRemainingTime());
                 (*it)->setState(Process::State::Terminated,currentTime());
+                usleep(shared_data->context_switch);
             } else {
                 usleep(shared_data->time_slice);
-            } 
-                
+            }     
             usleep(shared_data->context_switch);
             for (it = shared_data->ready_queue.begin(); it != shared_data->ready_queue.end(); it++){
                 std::lock_guard<std::mutex> lock(shared_data->mutex);
