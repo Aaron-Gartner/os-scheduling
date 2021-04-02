@@ -159,13 +159,25 @@ int main(int argc, char **argv)
     }
 
     // print final statistics
-    //  - CPU utilization
-    //  - Throughput
+    std::list<Process*>::iterator it;
+    //  - CPU utilization = 1 - (average percentage of time processes are waiting for I/O) * (number of processes running in memory)
+    printf("CPU Utilization: %f\n");
+    //  - Throughput = cpu time of each process added together, then divided by number of processes
     //     - Average for first 50% of processes finished
+    printf("Average throughput for first 50% of processes finished: %f\n");
     //     - Average for second 50% of processes finished
+    printf("Average throughput for second 50% of processes finished: %f\n");
     //     - Overall average
+    printf("Overall average throughput: %f\n");
     //  - Average turnaround time
+    printf("Average turnaround time: %f\n");
     //  - Average waiting time
+    double waitAverage = 0.0;
+    for (it = shared_data->ready_queue.begin(); it != shared_data->ready_queue.end(); it++) {
+        waitAverage = waitAverage + (*it)->getWaitTime();
+    }
+    waitAverage = waitAverage / (double)config->num_processes;
+    printf("Average wait time: %d",waitAverage);
 
 
     // Clean up before quitting program
@@ -206,9 +218,18 @@ void coreRunProcesses(uint8_t core_id, SchedulerData *shared_data)
                     shared_data->ready_queue.push_back(*it);
                 }               
             } 
+            //"if a process is newly created or finishes an IO burst and has a higher priority then a process currently running on any core,
+            //then the lowest priority process that is running should be removed from the CPU and placed in the ready queue
+            //(thus opening up that core to schedule the higher priority process) -----Isn't the ready queue already sorted with priority?
+            //-------------How can you look at the priorities of processes running on other cores?
             if (shared_data->algorithm == PP) {
-            
-            } 
+                (*it)->setState(Process::State::IO,currentTime());
+                //Finish I/O burst
+                usleep(shared_data->);
+                //Place back in ready cue based on its priority (0 at front, 4 at back)
+                (*it)->setState(Process::State::Ready,currentTime());
+                shared_data->ready_queue.insert((*it)->getPriority(), *it); //Not sure exactly how to insert like this
+            } else 
             //check if remaining time is less than time slice.
             if ((*it)->getRemainingTime() < shared_data->time_slice && (*it)->getState() == Process::State::Running) {
                 usleep((*it)->getRemainingTime());
