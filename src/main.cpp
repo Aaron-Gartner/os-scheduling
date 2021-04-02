@@ -2,6 +2,7 @@
 #include <string>
 #include <list>
 #include <vector>
+#include <iterator>
 #include <chrono>
 #include <thread>
 #include <mutex>
@@ -109,12 +110,13 @@ int main(int argc, char **argv)
         // - *Sort the ready queue (if needed - based on scheduling algorithm)
         //Sort based on remaining time
         if (shared_data->algorithm == SJF) {
-            shared_data->ready_queue.sort(SjfComparator::operator ());
+            for (it = shared_data->ready_queue.begin(); it != shared_data->ready_queue.end(); it++) {
+                shared_data->ready_queue.sort(SjfComparator());
+            }
         } 
         //Sort based on priority
         if (shared_data->algorithm == PP) {
-            shared_data->ready_queue.sort(PpComparator::operator ());
-
+            shared_data->ready_queue.sort(PpComparator());
         }
         //   - Determine if all processes are in the terminated state
         bool allComplete = false;
@@ -194,14 +196,14 @@ void coreRunProcesses(uint8_t core_id, SchedulerData *shared_data)
             std::lock_guard<std::mutex> lock(shared_data->mutex);
             (*it)->setState(Process::State::Running,currentTime());
             if (shared_data->algorithm == RR) {
-                //RR process runs until time slice expires
+                //RR process runs until time slice expires then moves to IO
                 if ((*it)->getRemainingTime() > shared_data->time_slice) {
                     usleep(shared_data->time_slice);
                     (*it)->interrupt();
                     (*it)->setState(Process::State::IO,currentTime());
                     (*it)->updateProcess(currentTime());
-                }
-                
+                    shared_data->ready_queue.push_back(*it);
+                }               
             } 
             if (shared_data->algorithm == PP) {
             
