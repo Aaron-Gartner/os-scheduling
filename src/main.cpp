@@ -100,7 +100,8 @@ int main(int argc, char **argv)
             //Moves from I/O to back into the queue
             if ((*it)->getState()  == Process::State::IO) {
                 (*it)->setState(Process::State::Ready,current);
-                usleep(shared_data->context_switch);
+                usleep((double)shared_data->context_switch/1000.0);
+                printf("Context Switch time is: %d\n",shared_data->context_switch);
             }
         }
         // - *Check if any running process need to be interrupted (RR time slice expires or newly ready process has higher priority)
@@ -163,28 +164,28 @@ int main(int argc, char **argv)
     // print final statistics
     std::list<Process*>::iterator it;
     //  - CPU utilization = 1 - (average percentage of time processes are waiting for I/O) * (number of processes running in memory)
-    printf("CPU Utilization: %f\n");
+    //printf("CPU Utilization: %f\n");
     //  - Throughput = cpu time of each process added together, then divided by number of processes
     //     - Average for first 50% of processes finished
-    printf("Average throughput for first 50% of processes finished: %f\n");
+    //printf("Average throughput for first 50% of processes finished: %f\n");
     //     - Average for second 50% of processes finished
-    printf("Average throughput for second 50% of processes finished: %f\n");
+    //printf("Average throughput for second 50% of processes finished: %f\n");
     //     - Overall average
     double overallThroughput = 0.0;
     for (it = shared_data->ready_queue.begin(); it != shared_data->ready_queue.end(); it++) {
         overallThroughput = overallThroughput + (*it)->getCpuTime();
     }
     overallThroughput = overallThroughput / (double)config->num_processes;
-    printf("Overall average throughput: %f\n");
+    //printf("Overall average throughput: %f\n");
     //  - Average turnaround time
-    printf("Average turnaround time: %f\n");
+    //printf("Average turnaround time: %f\n");
     //  - Average waiting time
     double waitAverage = 0.0;
     for (it = shared_data->ready_queue.begin(); it != shared_data->ready_queue.end(); it++) {
         waitAverage = waitAverage + (*it)->getWaitTime();
     }
     waitAverage = waitAverage / (double)config->num_processes;
-    printf("Average wait time: %d",waitAverage);
+    printf("Average wait time: %f",waitAverage);
 
 
     // Clean up before quitting program
@@ -213,9 +214,12 @@ void coreRunProcesses(uint8_t core_id, SchedulerData *shared_data)
         //Locks Crit section
         //std::lock_guard<std::mutex> lock(shared_data->mutex);
         for (it = shared_data->ready_queue.begin(); it != shared_data->ready_queue.end(); it++){
+            printf("In here\n");
             std::lock_guard<std::mutex> lock(shared_data->mutex);
-            (*it)->setCpuCore(0);
+            (*it)->setCpuCore(1);
+            printf("In here2\n");
             (*it)->setState(Process::State::Running,currentTime());
+            usleep(shared_data->context_switch);
             if (shared_data->algorithm == RR) {
                 //RR process runs until time slice expires then moves to IO
                 if ((*it)->getRemainingTime() > shared_data->time_slice) {
