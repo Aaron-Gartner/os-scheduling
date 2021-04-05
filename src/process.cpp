@@ -30,11 +30,13 @@ Process::Process(ProcessDetails details, uint64_t current_time)
         remain_time += burst_times[i];
     }
 }
+ 
 
 Process::~Process()
 {
     delete[] burst_times;
 }
+
 
 uint16_t Process::getPid() const
 {
@@ -62,7 +64,7 @@ Process::State Process::getState() const
 }
 
 bool Process::isInterrupted() const
-{
+{   //if time slice expired/if higher prior == true
     return is_interrupted;
 }
 
@@ -125,21 +127,32 @@ void Process::updateProcess(uint64_t current_time)
     // use `current_time` to update turnaround time, wait time, burst times, 
     // cpu time, and remaining time
     // current time update
-    uint64_t update_time_elapsed2 = (double)current_time / 1000.0; 
-    uint64_t update_time_elapsed = (double)getStartTime() - update_time_elapsed2;
+    double update_time_elapsed = (double)current_time - (double)getStartTime();
     // updates time run on cpu
-    cpu_time = current_time - getBurstStartTime();
+    cpu_time = (double)(update_time_elapsed - getBurstStartTime()) / 1000.0;
     //updates the remaining time base on time run on cpu
-    remain_time = getRemainingTime() - getCpuTime();
+    remain_time = (double)(getRemainingTime() - getCpuTime()) / 1000.0;
     //updates wait time
-    wait_time = (getWaitTime()+update_time_elapsed) - getCpuTime();
+    wait_time = (double)((getWaitTime()+update_time_elapsed) - getCpuTime()) / 1000.0;
     //updates turn time 
-    turn_time = getTurnaroundTime() + update_time_elapsed;
+    turn_time = (double)(getTurnaroundTime() + update_time_elapsed) / 1000.0;
     //updates burst times
     for (int i = 0; i < num_bursts; i++) {
-        updateBurstTime(burst_times[i], current_time);
-    }
+        updateBurstTime(burst_times[i], update_time_elapsed);
+    } 
     
+}
+
+public void Process::intialSetting(uint64_t current_time) 
+{
+    // updates time run on cpu
+    cpu_time = 0.0;
+    //updates the remaining time base on time run on cpu
+    remain_time = getRemainingTime();
+    //updates wait time
+    wait_time = 0.0;
+    //updates turn time 
+    turn_time = 0.0;
 }
 
 void Process::updateBurstTime(int burst_idx, uint32_t new_time)
