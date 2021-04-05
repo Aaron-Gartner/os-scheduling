@@ -16,7 +16,8 @@ Process::Process(ProcessDetails details, uint64_t current_time)
     priority = details.priority;
     state = (start_time == 0) ? State::Ready : State::NotStarted;
     if (state == State::Ready)
-    {
+    {   
+        state_startT = current_time;
         launch_time = current_time;
     }
     is_interrupted = false;
@@ -24,11 +25,15 @@ Process::Process(ProcessDetails details, uint64_t current_time)
     turn_time = 0;
     wait_time = 0;
     cpu_time = 0;
+    cpu_completed_bursts = 0;
     remain_time = 0;
+    total_waiting_time = 0;
     for (i = 0; i < num_bursts; i+=2)
     {
         remain_time += burst_times[i];
     }
+    total_run_time = remain_time;
+
 }
  
 
@@ -93,6 +98,7 @@ double Process::getRemainingTime() const
     return (double)remain_time / 1000.0;
 }
 
+
 void Process::setBurstStartTime(uint64_t current_time)
 {
     burst_start_time = current_time;
@@ -104,6 +110,16 @@ void Process::setState(State new_state, uint64_t current_time)
     {
         launch_time = current_time;
     }
+    if (state == State::Running && new_state != State::Running)
+    {
+        cpu_completed_bursts = cpu_time;
+    }
+    if (state == State::Ready && new_state != State::Ready)
+    {
+        total_waiting_time = wait_time;
+    }
+    state_startT = current_time;
+
     state = new_state;
 }
 
@@ -127,37 +143,31 @@ void Process::updateProcess(uint64_t current_time)
     // use `current_time` to update turnaround time, wait time, burst times, 
     // cpu time, and remaining time
     // current time update
-    double update_time_elapsed = (double)current_time - (double)getStartTime();
+    uint32_t update_time_elapsed = current_time - state_startT;
     // updates time run on cpu
-    cpu_time = (double)(update_time_elapsed - getBurstStartTime()) / 1000.0;
+    if (state == State::Running) {
+        cpu_time = cpu_completed_bursts + update_time_elapsed;
+    }
     //updates the remaining time base on time run on cpu
-    remain_time = (double)(getRemainingTime() - getCpuTime()) / 1000.0;
+    remain_time = (total_run_time - cpu_time);
     //updates wait time
-    wait_time = (double)((getWaitTime()+update_time_elapsed) - getCpuTime()) / 1000.0;
+    if(state == State::Ready) { 
+        wait_time = total_waiting_time + update_time_elapsed;
+    }
     //updates turn time 
-    turn_time = (double)(getTurnaroundTime() + update_time_elapsed) / 1000.0;
-    //updates burst times
-    for (int i = 0; i < num_bursts; i++) {
-        updateBurstTime(burst_times[i], update_time_elapsed);
-    } 
+    turn_time = current_time - launch_time;
     
 }
 
-public void Process::intialSetting(uint64_t current_time) 
-{
-    // updates time run on cpu
-    cpu_time = 0.0;
-    //updates the remaining time base on time run on cpu
-    remain_time = getRemainingTime();
-    //updates wait time
-    wait_time = 0.0;
-    //updates turn time 
-    turn_time = 0.0;
-}
-
+//only used if process is interrupted
 void Process::updateBurstTime(int burst_idx, uint32_t new_time)
 {
     burst_times[burst_idx] = new_time;
+}
+
+uint32_t Process::getBurstTime(int index)
+{ 
+    return burst_times[index];
 }
 
 

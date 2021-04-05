@@ -77,10 +77,6 @@ int main(int argc, char **argv)
         schedule_threads[i] = std::thread(coreRunProcesses, i, shared_data);
     }
 
-    for (int i = 0; i < processes.size(); i++){
-            std::lock_guard<std::mutex> lock(shared_data->mutex);
-            processes[i]->intialSetting(currentTime());
-    }
     // Main thread work goes here
     int num_lines = 0;
     while (!(shared_data->all_terminated))
@@ -215,6 +211,7 @@ void coreRunProcesses(uint8_t core_id, SchedulerData *shared_data)
     //take the thing at the front of the ready queue
     while (!(shared_data->all_terminated)) {
         //check if ready queue is empty
+        int index = 0;
         Process *front = NULL;
         {
         std::lock_guard<std::mutex> lock(shared_data->mutex);
@@ -229,16 +226,17 @@ void coreRunProcesses(uint8_t core_id, SchedulerData *shared_data)
             front->setState(Process::State::Running,currentTime());
             //must compare cpu burst
             //switch out with while loop(whle not interrupted and time running < cpu burst) add 10 milsec sleep
-            while(!(front->isInterrupted()) && ((front->getCpuTime()) > (currentTime() - front->getBurstStartTime()))) {
+            while(!(front->isInterrupted()) && ((front->getBurstTime(index)) > (currentTime() - front->getBurstStartTime()))) {
                 //start timer
                 uint64_t startTimer = currentTime();
-                if (front->getRemainingTime() < shared_data->time_slice && front->getState() == Process::State::Running) {
-                    usleep(front->getRemainingTime());
+                if ((front->getRemainingTime() < 0.0) && front->getState() == Process::State::Running) {
+                    index++;
                     front->setState(Process::State::Terminated,currentTime());
                 }
                 //only occurs if interrupted
                 if  (front->isInterrupted()) {
                     front->setState(Process::State::IO,currentTime());
+                    front->updateBurstTime(index, currentTime());
                     shared_data->ready_queue.push_back(front);
                 }
                  // sleep 5 ms
