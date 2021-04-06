@@ -46,6 +46,8 @@ public:
     double getCpuTime() const;
     double getRemainingTime() const;
     uint32_t getBurstTime(int index);
+    uint16_t get_bursts();
+
 
     void setBurstStartTime(uint64_t current_time);
     void setState(State new_state, uint64_t current_time);

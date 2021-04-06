@@ -165,9 +165,14 @@ void Process::updateBurstTime(int burst_idx, uint32_t new_time)
     burst_times[burst_idx] = new_time;
 }
 
+
 uint32_t Process::getBurstTime(int index)
 { 
     return burst_times[index];
+}
+
+uint16_t Process::get_bursts() {
+    return num_bursts;
 }
 
 
