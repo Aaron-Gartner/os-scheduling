@@ -47,6 +47,8 @@ public:
     double getRemainingTime() const;
     uint32_t getBurstTime(int index);
     uint16_t get_bursts();
+    uint32_t getCurrentBurstIndex();
+    bool isFinalBurst(int index);
     
 
     void setBurstStartTime(uint64_t current_time);

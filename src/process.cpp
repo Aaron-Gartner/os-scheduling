@@ -98,10 +98,17 @@ double Process::getRemainingTime() const
     return (double)remain_time / 1000.0;
 }
 
+uint32_t Process::getCurrentBurstIndex(){
+
+    return current_burst;
+
+}
+
 
 void Process::setBurstStartTime(uint64_t current_time)
 {
     burst_start_time = current_time;
+    current_burst++;
 }
 
 void Process::setState(State new_state, uint64_t current_time)
@@ -147,6 +154,7 @@ void Process::updateProcess(uint64_t current_time)
     // updates time run on cpu
     if (state == State::Running) {
         cpu_time = cpu_completed_bursts + update_time_elapsed;
+        
     }
     //updates the remaining time base on time run on cpu
     remain_time = (total_run_time - cpu_time);
@@ -163,6 +171,7 @@ void Process::updateProcess(uint64_t current_time)
 void Process::updateBurstTime(int burst_idx, uint32_t new_time)
 {
     burst_times[burst_idx] = new_time;
+    current_burst = burst_idx;
 }
 
 
@@ -173,6 +182,14 @@ uint32_t Process::getBurstTime(int index)
 
 uint16_t Process::get_bursts() {
     return num_bursts;
+}
+
+bool Process::isFinalBurst(int index) {
+    if (index+1 == num_bursts) {
+        return true;
+    } else {
+        return false;
+    }
 }
 
 
