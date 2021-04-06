@@ -89,6 +89,7 @@ int main(int argc, char **argv)
         for(int i = 0; i < processes.size(); i++){
             if(processes[i]->getState() == Process::State::NotStarted && (current - start) >= processes[i]->getStartTime()){
                 processes[i]->setState(Process::State::Ready, current);
+                shared_data->ready_queue.push_back(processes[i]);  
             }
         }
         // - *Check if any processes have finished their I/O burst, and if so put that process back in the ready queue
@@ -98,6 +99,7 @@ int main(int argc, char **argv)
             //Moves from I/O to back into the queue
             if (processes[i]->getState()  == Process::State::IO) {
                 processes[i]->setState(Process::State::Ready,current);
+                shared_data->ready_queue.push_back(processes[i]);
             }
             }
         }
@@ -113,7 +115,6 @@ int main(int argc, char **argv)
                     index++;
                     processes[i]->setState(Process::State::IO,current);
                     processes[i]->updateProcess(current);
-                    shared_data->ready_queue.push_back(processes[i]);
                 }     
             }
             /*
@@ -228,8 +229,7 @@ void coreRunProcesses(uint8_t core_id, SchedulerData *shared_data)
     //  - * = accesses shared data (ready queue), so be sure to use proper synchronization
     
     //take the thing at the front of the ready queue
-    while (!(shared_data->all_terminated)) {
-        
+    while (!(shared_data->all_terminated)) {    
         int index = 0;
         Process *front = NULL;
         {
@@ -237,19 +237,18 @@ void coreRunProcesses(uint8_t core_id, SchedulerData *shared_data)
         std::lock_guard<std::mutex> lock(shared_data->mutex);
         if (!(shared_data->ready_queue.empty())){
             front = shared_data->ready_queue.front();
-            shared_data->ready_queue.remove(front);
-            //printf("Here\n");
+            shared_data->ready_queue.pop_front();
             }
         }
         if (front != NULL) {
             front->setCpuCore(core_id); 
             //printf("Here\n");
             front->setState(Process::State::Running,currentTime());
+            front->setBurstStartTime(currentTime());
             //must compare cpu burst
             //switch out with while loop(whle not interrupted and time running < cpu burst) add 10 milsec sleep
-            printf("Num_Bursts:%d\n", front->get_bursts());
-            while(!(front->isInterrupted()) && (index+1 != front->get_bursts())) {
-                printf("Num_Bursts:%d\n", front->get_bursts());
+            while(!(front->isInterrupted()) && (front->getCpuTime() < front->getCpuTime()+front->getBurstTime(index))) {
+                //printf("Num_Bursts:%d\n", front->get_bursts());
                 //start timer
                 uint64_t startTimer = currentTime();
                 //printf("Here\n");
@@ -259,11 +258,13 @@ void coreRunProcesses(uint8_t core_id, SchedulerData *shared_data)
                     index++;
                     front->setState(Process::State::Terminated,currentTime());
                     front->setCpuCore(-1);
+                    shared_data->ready_queue.remove(front);
                     }
                 }
                 //only occurs if interrupted
                 if  (front->isInterrupted()) {
                     front->setState(Process::State::IO,currentTime());
+                    front->setCpuCore(-1);
                     front->updateBurstTime(index, currentTime());
                     shared_data->ready_queue.push_back(front);
                 }
