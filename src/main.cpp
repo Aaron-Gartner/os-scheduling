@@ -236,8 +236,7 @@ void coreRunProcesses(uint8_t core_id, SchedulerData *shared_data)
             //printf("Here\n");
             uint64_t now = currentTime();
             front->setState(Process::State::Running,now);
-            front->setBurstStartTime(now);
-            
+            front->setBurstStartTime(now);   
             while(!(front->isInterrupted()) && ((currentTime() - now) < front->getBurstTime(front->getCurrentBurstIndex()))) {
                 //start time
                 uint64_t startTimer = currentTime();

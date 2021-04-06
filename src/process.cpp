@@ -171,7 +171,7 @@ void Process::updateProcess(uint64_t current_time)
 void Process::updateBurstTime(int burst_idx, uint32_t new_time)
 {
     burst_times[burst_idx] = new_time;
-    current_burst = burst_idx;
+    //current_burst = burst_idx;
 }
 
 
