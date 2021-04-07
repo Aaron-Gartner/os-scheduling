@@ -110,9 +110,8 @@ int main(int argc, char **argv)
             {
             std::lock_guard<std::mutex> lock(shared_data->mutex);
             //time the process been on cpu longer than time slice
-            if (processes[i]->getRemainingTime() >= shared_data->time_slice && processes[i]->Running) {
+            if ((current - processes[i]->getBurstStartTime()) >= shared_data->time_slice && processes[i]->getState() == Process::State::Running) {
                     processes[i]->interrupt();
-                    processes[i]->setState(Process::State::IO,current);
                     processes[i]->updateProcess(current);
                 }     
             }
@@ -127,6 +126,17 @@ int main(int argc, char **argv)
         if (shared_data->algorithm == PP) {
             std::lock_guard<std::mutex> lock(shared_data->mutex);
             shared_data->ready_queue.sort(PpComparator());
+            for (int i = 0; i < processes.size(); i++) {
+                {
+                std::lock_guard<std::mutex> lock(shared_data->mutex);
+                Process* front = shared_data->ready_queue.front();
+                if ((processes[i]->getPriority() > front->getPriority() && processes[i]->getState() == Process::State::Running)) {
+                        processes[i]->interrupt();
+                        processes[i]->updateProcess(current);
+                        shared_data->ready_queue.push_back(processes[i]);
+                    }     
+                }
+            }
         }
         //   - Determine if all processes are in the terminated state
         int counter = 0;
@@ -267,10 +277,11 @@ void coreRunProcesses(uint8_t core_id, SchedulerData *shared_data)
             while(!(front->isInterrupted()) && ((currentTime() - now) < front->getBurstTime(front->getCurrentBurstIndex()))) {
                 //start time
                 uint64_t startTimer = currentTime();
+                front->setCpuUtilizationStartTime(startTimer);
                  // sleep 10 ms
                 usleep(10000);
             }
-            if (front->isInterrupted()) {
+            if (front->isInterrupted() && ((currentTime() - now) < front->getBurstTime(front->getCurrentBurstIndex()))) {
                 {
                 std::lock_guard<std::mutex> lock(shared_data->mutex);
                 front->setState(Process::State::Ready,currentTime());
@@ -282,6 +293,7 @@ void coreRunProcesses(uint8_t core_id, SchedulerData *shared_data)
             }
             else if (front->isFinalBurst(front->getCurrentBurstIndex())) {    
                 front->setState(Process::State::Terminated,currentTime());
+                //set time remaining
                 front->setCpuCore(-1);
             } else {
                 front->setState(Process::State::IO, currentTime());
@@ -290,7 +302,9 @@ void coreRunProcesses(uint8_t core_id, SchedulerData *shared_data)
             }
                 //only occurs if interrupted
             //end timer  
-            uint64_t endTimer = currentTime();
+            front->setCpuUtilizationTime(currentTime());
+
+            // = cpuUtilTime + (endTimer - startTimer);
             //sleep context switch
             usleep(shared_data->context_switch);
             //figure out cpu util

@@ -26,8 +26,10 @@ private:
     uint64_t launch_time;       // actual time in ms (since epoch) that process was 'launched'
     uint64_t state_startT;      //actual time in ms that process last changed it's state.
     uint32_t cpu_completed_bursts; //completed cpu burst
-    uint32_t total_run_time; //total running time 
-    uint32_t total_waiting_time;
+    uint32_t total_run_time;    //total running time 
+    uint32_t total_waiting_time;    //total waiting time
+    uint64_t cpu_utilization_time; //to hold our cpu utilization
+    uint64_t cpu_utilization_start;
     // you are welcome to add other private data fields here if you so choose
 
 public:
@@ -48,6 +50,10 @@ public:
     uint32_t getBurstTime(int index);
     uint16_t get_bursts();
     uint32_t getCurrentBurstIndex();
+    uint64_t getCpuUtilizationTime();
+    void setCpuUtilizationTime(uint64_t addedTime);
+    uint64_t getCpuUtilizationStartTime();
+    void setCpuUtilizationStartTime(uint64_t startTime);
     bool isFinalBurst(int index);
     
 

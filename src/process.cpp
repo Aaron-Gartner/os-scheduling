@@ -28,6 +28,8 @@ Process::Process(ProcessDetails details, uint64_t current_time)
     cpu_completed_bursts = 0;
     remain_time = 0;
     total_waiting_time = 0;
+    cpu_utilization_time = 0;
+    cpu_utilization_start = 0;
     for (i = 0; i < num_bursts; i+=2)
     {
         remain_time += burst_times[i];
@@ -104,10 +106,27 @@ uint32_t Process::getCurrentBurstIndex(){
 
 }
 
-
 void Process::setBurstStartTime(uint64_t current_time)
 {
     burst_start_time = current_time;
+}
+
+uint64_t Process::getCpuUtilizationStartTime() 
+{
+    return cpu_utilization_start;
+}
+
+void Process::setCpuUtilizationStartTime(uint64_t currentTime) {
+    cpu_utilization_start =  currentTime;
+}
+
+uint64_t Process::getCpuUtilizationTime() 
+{
+    return cpu_utilization_time;
+}
+
+void Process::setCpuUtilizationTime(uint64_t endTime) {
+    cpu_utilization_time = cpu_utilization_time +(cpu_utilization_start - endTime);
 }
 
 void Process::setState(State new_state, uint64_t current_time)
@@ -118,14 +137,17 @@ void Process::setState(State new_state, uint64_t current_time)
     }
     if (state == State::Running && new_state != State::Running)
     {
-        current_burst++;
         cpu_completed_bursts = cpu_time;
     }
     if (state == State::Ready && new_state != State::Ready)
     {
         total_waiting_time = wait_time;
     }
-    if (state == State::IO && new_state == Ready)
+    if (state == State::IO && new_state == State::Ready)
+    {
+        current_burst++;
+    }
+    if (state == State::Running && new_state == State::IO)
     {
         current_burst++;
     }
