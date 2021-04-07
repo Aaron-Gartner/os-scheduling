@@ -108,7 +108,6 @@ uint32_t Process::getCurrentBurstIndex(){
 void Process::setBurstStartTime(uint64_t current_time)
 {
     burst_start_time = current_time;
-    current_burst++;
 }
 
 void Process::setState(State new_state, uint64_t current_time)
@@ -119,11 +118,16 @@ void Process::setState(State new_state, uint64_t current_time)
     }
     if (state == State::Running && new_state != State::Running)
     {
+        current_burst++;
         cpu_completed_bursts = cpu_time;
     }
     if (state == State::Ready && new_state != State::Ready)
     {
         total_waiting_time = wait_time;
+    }
+    if (state == State::IO && new_state == Ready)
+    {
+        current_burst++;
     }
     state_startT = current_time;
 

@@ -129,25 +129,19 @@ int main(int argc, char **argv)
             shared_data->ready_queue.sort(PpComparator());
         }
         //   - Determine if all processes are in the terminated state
-        bool allComplete = false;
         int counter = 0;
         for (int i = 0; i < processes.size(); i++) {
-            //Takes the process at the front of the ready queue
             {
             std::lock_guard<std::mutex> lock(shared_data->mutex);
             if (processes[i]->getState() == Process::State::Terminated) {
-                allComplete = true;
                 counter++;
-            } else {
-                allComplete = false;
             }
             }   
         }
         //check if all complete is true and it occured for everything in our ready queue
-        if (allComplete == true && (counter == processes.size())) {
+        if (counter == processes.size()) {
             std::lock_guard<std::mutex> lock(shared_data->mutex);
-            shared_data->all_terminated = allComplete;
-            break;
+            shared_data->all_terminated = true;
         }
         //updates Processes
         for (int i = 0; i < processes.size(); i++){
@@ -173,31 +167,61 @@ int main(int argc, char **argv)
         schedule_threads[i].join();
     }
 
+    uint64_t end = currentTime();
+
     // print final statistics
     std::list<Process*>::iterator it;
     //  - CPU utilization = 1 - (average percentage of time processes are waiting for I/O) * (number of processes running in memory)
-    //printf("CPU Utilization: %f\n");
+    double waitTime = 0.0;
+    for (int i = 0; i < processes.size(); i++) {
+        waitTime = waitTime + processes[i]->getWaitTime();
+    }
+    waitTime = waitTime / (double)processes.size();
+    double averageWaitPercentage = waitTime/(end - start);
+    double cpuUtil = (1 - averageWaitPercentage * processes.size()) * 100.0;
+    printf("CPU Utilization: %f\n", cpuUtil);
+
     //  - Throughput = cpu time of each process added together, then divided by number of processes
-    //     - Average for first 50% of processes finished
-    //printf("Average throughput for first 50% of processes finished: %f\n");
-    //     - Average for second 50% of processes finished
-    //printf("Average throughput for second 50% of processes finished: %f\n");
-    //     - Overall average
     double overallThroughput = 0.0;
     for (int i = 0; i < processes.size(); i++) {
         overallThroughput = overallThroughput + processes[i]->getCpuTime();
     }
     overallThroughput = overallThroughput / (double)processes.size();
-    printf("Overall average throughput: %f\n", overallThroughput);
-    //  - Average turnaround time
-    //printf("Average turnaround time: %f\n");
-    //  - Average waiting time
-    double waitAverage = 0.0;
+    //     - Average for first half of processes finished
+    double firstHalfThroughput = 0.0;
+    int numProcesses = 0;
     for (int i = 0; i < processes.size(); i++) {
-        waitAverage = waitAverage + processes[i]->getWaitTime();
+        if(processes[i]->getCpuTime() <= overallThroughput){
+            firstHalfThroughput = firstHalfThroughput + processes[i]->getCpuTime();
+            numProcesses++;
+        }
     }
-    waitAverage = waitAverage / (double)processes.size();
-    printf("Average wait time: %f\n",waitAverage);
+    firstHalfThroughput = firstHalfThroughput / numProcesses;
+    printf("Average throughput for first half of processes finished: %f\n", firstHalfThroughput);
+    //     - Average for second half of processes finished
+    double secondHalfThroughput = 0.0;
+    numProcesses = 0;
+    for (int i = 0; i < processes.size(); i++) {
+        if(processes[i]->getCpuTime() >= overallThroughput){
+            secondHalfThroughput = secondHalfThroughput + processes[i]->getCpuTime();
+            numProcesses++;
+        }
+    }
+    secondHalfThroughput = secondHalfThroughput / numProcesses;
+    printf("Average throughput for second half of processes finished: %f\n", secondHalfThroughput);
+    //     - Overall average
+    printf("Overall average throughput: %f\n", overallThroughput);
+
+    //  - Average turnaround time
+    double averageTurnaround = 0.0;
+    for (int i = 0; i < processes.size(); i++) {
+        averageTurnaround = averageTurnaround + processes[i]->getTurnaroundTime();
+    }
+    averageTurnaround = averageTurnaround / (double)processes.size();
+    printf("Average turnaround time: %f\n", averageTurnaround);
+
+    //  - Average waiting time
+    printf("Average wait time: %f\n",waitTime);
 
 
     // Clean up before quitting program
@@ -261,6 +285,7 @@ void coreRunProcesses(uint8_t core_id, SchedulerData *shared_data)
                 front->setCpuCore(-1);
             } else {
                 front->setState(Process::State::IO, currentTime());
+                //front->updateBurstTime(front->getCurrentBurstIndex()+1, currentTime());
                 front->setCpuCore(-1);
             }
                 //only occurs if interrupted
