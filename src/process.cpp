@@ -163,15 +163,16 @@ void Process::updateProcess(uint64_t current_time)
         wait_time = total_waiting_time + update_time_elapsed;
     }
     //updates turn time 
-    turn_time = current_time - launch_time;
-    
+    if(state != State::Terminated) {
+        turn_time = current_time - launch_time;
+    }
 }
 
 //only used if process is interrupted
 void Process::updateBurstTime(int burst_idx, uint32_t new_time)
 {
     burst_times[burst_idx] = new_time;
-    //current_burst = burst_idx;
+    current_burst = burst_idx;
 }
 
 

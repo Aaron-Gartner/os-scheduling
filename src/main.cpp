@@ -97,7 +97,7 @@ int main(int argc, char **argv)
             {
             std::lock_guard<std::mutex> lock(shared_data->mutex);
             //Moves from I/O to back into the queue
-            if (processes[i]->getState()  == Process::State::IO && time) {
+            if ((current - processes[i]->getBurstStartTime()) >= processes[i]->getBurstTime(processes[i]->getCurrentBurstIndex()) && processes[i]->getState()  == Process::State::IO) {
                 processes[i]->setState(Process::State::Ready,current);
                 shared_data->ready_queue.push_back(processes[i]);
             }
@@ -133,11 +133,14 @@ int main(int argc, char **argv)
         int counter = 0;
         for (int i = 0; i < processes.size(); i++) {
             //Takes the process at the front of the ready queue
+            {
+            std::lock_guard<std::mutex> lock(shared_data->mutex);
             if (processes[i]->getState() == Process::State::Terminated) {
                 allComplete = true;
                 counter++;
             } else {
                 allComplete = false;
+            }
             }   
         }
         //check if all complete is true and it occured for everything in our ready queue
@@ -240,8 +243,8 @@ void coreRunProcesses(uint8_t core_id, SchedulerData *shared_data)
             while(!(front->isInterrupted()) && ((currentTime() - now) < front->getBurstTime(front->getCurrentBurstIndex()))) {
                 //start time
                 uint64_t startTimer = currentTime();
-                 // sleep 5 ms
-                usleep(5000);
+                 // sleep 10 ms
+                usleep(10000);
             }
             if (front->isInterrupted()) {
                 {
@@ -253,12 +256,11 @@ void coreRunProcesses(uint8_t core_id, SchedulerData *shared_data)
                 shared_data->ready_queue.push_back(front);
                 }
             }
-            else if ((front->isFinalBurst(front->getCurrentBurstIndex()))) {    
+            else if (front->isFinalBurst(front->getCurrentBurstIndex())) {    
                 front->setState(Process::State::Terminated,currentTime());
                 front->setCpuCore(-1);
-                    
             } else {
-                front->setState(Process::State::IO,currentTime());
+                front->setState(Process::State::IO, currentTime());
                 front->setCpuCore(-1);
             }
                 //only occurs if interrupted
