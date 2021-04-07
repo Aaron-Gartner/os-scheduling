@@ -120,13 +120,13 @@ void Process::setCpuUtilizationStartTime(uint64_t currentTime) {
     cpu_utilization_start =  currentTime;
 }
 
-uint64_t Process::getCpuUtilizationTime() 
+double Process::getCpuUtilizationTime() 
 {
-    return cpu_utilization_time;
+    return (double)cpu_utilization_time/1000.0;
 }
 
 void Process::setCpuUtilizationTime(uint64_t endTime) {
-    cpu_utilization_time = cpu_utilization_time +(cpu_utilization_start - endTime);
+    cpu_utilization_time = cpu_utilization_time +(endTime - cpu_utilization_start);
 }
 
 void Process::setState(State new_state, uint64_t current_time)
@@ -151,6 +151,11 @@ void Process::setState(State new_state, uint64_t current_time)
     {
         current_burst++;
     }
+    if (state == State::Running && new_state == State::Terminated)
+    {
+        setRemainingTime();
+    }
+
     state_startT = current_time;
 
     state = new_state;
@@ -219,6 +224,10 @@ bool Process::isFinalBurst(int index) {
     }
 }
 
+void Process::setRemainingTime(){
+    remain_time = 0;
+}
+
 
 // Comparator methods: used in std::list sort() method
 // No comparator needed for FCFS or RR (ready queue never sorted)
@@ -230,7 +239,7 @@ bool SjfComparator::operator ()(const Process *p1, const Process *p2)
     if (p1->getRemainingTime() > p2->getRemainingTime()){
         return true;
     }
-    return false; // change this!
+    return false; 
 }
 
 // PP - comparator for sorting read queue based on priority
@@ -240,5 +249,5 @@ bool PpComparator::operator ()(const Process *p1, const Process *p2)
     if (p1->getPriority() > p2->getPriority()){
         return true;
     }
-    return false; // change this!
+    return false; 
 }

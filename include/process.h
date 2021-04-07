@@ -50,7 +50,8 @@ public:
     uint32_t getBurstTime(int index);
     uint16_t get_bursts();
     uint32_t getCurrentBurstIndex();
-    uint64_t getCpuUtilizationTime();
+    double getCpuUtilizationTime();
+    void setRemainingTime();
     void setCpuUtilizationTime(uint64_t addedTime);
     uint64_t getCpuUtilizationStartTime();
     void setCpuUtilizationStartTime(uint64_t startTime);

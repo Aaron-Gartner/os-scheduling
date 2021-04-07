@@ -126,16 +126,20 @@ int main(int argc, char **argv)
         if (shared_data->algorithm == PP) {
             std::lock_guard<std::mutex> lock(shared_data->mutex);
             shared_data->ready_queue.sort(PpComparator());
+        }
+        //Checks if process needs to be interrupted, compares priorities
+        if (shared_data->algorithm == PP && shared_data->ready_queue.size() > num_cores) {
+            {
+            std::lock_guard<std::mutex> lock(shared_data->mutex);
             for (int i = 0; i < processes.size(); i++) {
-                {
-                std::lock_guard<std::mutex> lock(shared_data->mutex);
                 Process* front = shared_data->ready_queue.front();
-                if ((processes[i]->getPriority() > front->getPriority() && processes[i]->getState() == Process::State::Running)) {
+                if ((processes[i]->getState() == Process::State::Running) && (front->getPriority() < processes[i]->getPriority())) {
                         processes[i]->interrupt();
                         processes[i]->updateProcess(current);
-                        shared_data->ready_queue.push_back(processes[i]);
-                    }     
-                }
+                        shared_data->ready_queue.push_front(processes[i]);
+                }     
+                
+            }
             }
         }
         //   - Determine if all processes are in the terminated state
@@ -177,20 +181,17 @@ int main(int argc, char **argv)
         schedule_threads[i].join();
     }
 
-    uint64_t end = currentTime();
 
     // print final statistics
     std::list<Process*>::iterator it;
     //  - CPU utilization = 1 - (average percentage of time processes are waiting for I/O) * (number of processes running in memory)
-    double waitTime = 0.0;
+    double utilTime = 0.0;
     for (int i = 0; i < processes.size(); i++) {
-        waitTime = waitTime + processes[i]->getWaitTime();
+        utilTime = utilTime + processes[i]->getCpuUtilizationTime();
     }
-    waitTime = waitTime / (double)processes.size();
-    double averageWaitPercentage = waitTime/(end - start);
-    double cpuUtil = (1 - averageWaitPercentage * processes.size()) * 100.0;
+    utilTime = utilTime / (double)processes.size();
+    double cpuUtil = (1 - (utilTime * processes.size())) * 100.0;
     printf("CPU Utilization: %f\n", cpuUtil);
-
     //  - Throughput = cpu time of each process added together, then divided by number of processes
     double overallThroughput = 0.0;
     for (int i = 0; i < processes.size(); i++) {
@@ -231,8 +232,12 @@ int main(int argc, char **argv)
     printf("Average turnaround time: %f\n", averageTurnaround);
 
     //  - Average waiting time
+    double waitTime = 0.0;
+    for (int i = 0; i < processes.size(); i++) {
+        waitTime = waitTime + processes[i]->getWaitTime();
+    }
+    waitTime = waitTime / (double)processes.size();
     printf("Average wait time: %f\n",waitTime);
-
 
     // Clean up before quitting program
     processes.clear();
@@ -265,12 +270,12 @@ void coreRunProcesses(uint8_t core_id, SchedulerData *shared_data)
             shared_data->ready_queue.pop_front();
             }
         }
+        //Check if front is Null
         if (front != NULL) {
             {
             std::lock_guard<std::mutex> lock(shared_data->mutex);
             front->setCpuCore(core_id); 
             }
-            //printf("Here\n");
             uint64_t now = currentTime();
             front->setState(Process::State::Running,now);
             front->setBurstStartTime(now);   
@@ -293,18 +298,14 @@ void coreRunProcesses(uint8_t core_id, SchedulerData *shared_data)
             }
             else if (front->isFinalBurst(front->getCurrentBurstIndex())) {    
                 front->setState(Process::State::Terminated,currentTime());
-                //set time remaining
                 front->setCpuCore(-1);
             } else {
                 front->setState(Process::State::IO, currentTime());
-                //front->updateBurstTime(front->getCurrentBurstIndex()+1, currentTime());
                 front->setCpuCore(-1);
             }
                 //only occurs if interrupted
             //end timer  
             front->setCpuUtilizationTime(currentTime());
-
-            // = cpuUtilTime + (endTimer - startTimer);
             //sleep context switch
             usleep(shared_data->context_switch);
             //figure out cpu util
